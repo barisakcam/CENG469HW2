@@ -66,14 +66,24 @@ const GLfloat skyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
-const GLfloat groundVertices[] = {
-	//positions			  //texture
-	-1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
-    -1.0f, -1.0f, -1.0f,  0.0f,  2.0f,
-     1.0f, -1.0f, -1.0f,  2.0f,  2.0f,
-     1.0f, -1.0f, -1.0f,  2.0f,  2.0f,
-     1.0f,  1.0f, -1.0f,  2.0f,  0.0f,
-    -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
+const GLuint skyboxIndices[] = {
+	0,  1,  2,
+	3,  4,  5,
+
+	6,  7,  8,
+	9,  10, 11,
+	
+	12, 13, 14,
+	15, 16, 17,
+
+	18, 19, 20,
+	21, 22, 23,
+	
+	24, 25, 26,
+	27, 28, 29,
+
+	30, 31, 32,
+	33, 34, 35
 };
 
 using namespace std;
@@ -90,7 +100,7 @@ GLint eyePosLoc[10];
 glm::mat4 projectionMatrix[10];
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
-glm::vec3 eyePos(0, 0.3, 0);
+glm::vec3 eyePos(0, 0, 0);
 
 int activeProgramIndex = 0;
 
@@ -135,22 +145,31 @@ vector<Face> gFaces;
 
 GLuint vao[10];
 
-GLuint gVertexAttribBuffer;
-GLuint gIndexBuffer;
+GLuint gBodyVertexBuffer;
+GLuint gBodyIndexBuffer;
+GLint gBodyFaceCount;
 
 GLuint gSkyVertexBuffer;
+GLuint gSkyIndexBuffer;
+GLint skyTexLoc;
+GLuint gTexCube;
 
 GLuint gGroundVertexBuffer;
+GLuint gGroundIndexBuffer;
+GLint gGroundFaceCount;
 GLint groundTexLoc;
-
-GLint gInVertexLoc, gInNormalLoc;
-int gVertexDataSizeInBytes, gNormalDataSizeInBytes;
-int skyboxBufferSize = 3 * 6 * 6;
-
-GLuint gTexCube;
 GLuint gTexGround;
 
+GLuint gStatueVertexBuffer;
+GLuint gStatueIndexBuffer;
+GLint gStatueFaceCount;
+
+GLint gInVertexLoc, gInNormalLoc;
+int skyboxBufferSize = 3 * 6 * 6;
+
 GLuint CubeSampler;
+
+GLfloat angle = 0;
 
 bool ParseObj(const string& fileName)
 {
@@ -338,6 +357,7 @@ void initShaders()
 	gProgram[0] = glCreateProgram();
 	gProgram[1] = glCreateProgram();
 	gProgram[2] = glCreateProgram();
+	gProgram[3] = glCreateProgram();
 
 	// Create the shaders for both programs
 
@@ -350,6 +370,9 @@ void initShaders()
 	GLuint vs3 = createVS("shaders/ground_vert.glsl");
 	GLuint fs3 = createFS("shaders/ground_frag.glsl");
 
+	GLuint vs4 = createVS("shaders/statue_vert.glsl");
+	GLuint fs4 = createFS("shaders/statue_frag.glsl");
+
 	// Attach the shaders to the programs
 
 	glAttachShader(gProgram[0], vs1);
@@ -360,6 +383,9 @@ void initShaders()
 
 	glAttachShader(gProgram[2], vs3);
 	glAttachShader(gProgram[2], fs3);
+
+	glAttachShader(gProgram[3], vs4);
+	glAttachShader(gProgram[3], fs4);
 
 	// Link the programs
 
@@ -392,9 +418,18 @@ void initShaders()
 		exit(-1);
 	}
 
+	glLinkProgram(gProgram[3]);
+	glGetProgramiv(gProgram[3], GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		cout << "Program link failed" << endl;
+		exit(-1);
+	}
+
 	// Get the locations of the uniform variables from both programs
 
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < 4; ++i)
 	{
 		modelingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "modelingMatrix");
 		viewingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "viewingMatrix");
@@ -403,47 +438,27 @@ void initShaders()
 	}
 
 	groundTexLoc = glGetUniformLocation(gProgram[2], "groundTex");
+	skyTexLoc = glGetUniformLocation(gProgram[0], "skyTex");
 }
 
-void initVBO()
+void initObj(GLuint &vertexBuffer, GLuint &indexBuffer, const std::string &fileName, int vaoIndex, GLint &FaceCount)
 {
-	ParseObj("hw2_support_files/obj/cybertruck/cybertruck_body.obj");
+	ParseObj(fileName);
 
-	glGenVertexArrays(10, &vao[0]);
-	assert(vao[0] > 0);
-
-	////////////////////////////////////////////////////////////////
-
-	glBindVertexArray(vao[0]);
-	cout << "vao[0] = " << vao[0] << endl;
+	glBindVertexArray(vao[vaoIndex]);
+	cout << "vao = " << vao[vaoIndex] << endl;
 
 	assert(glGetError() == GL_NONE);
 
-	glGenBuffers(1, &gSkyVertexBuffer);
+	glGenBuffers(1, &vertexBuffer);
+	glGenBuffers(1, &indexBuffer);
 
-	assert(&gSkyVertexBuffer > 0);
+	assert(vertexBuffer > 0 && indexBuffer > 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, gSkyVertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
-
-	/////////////////////////////////////////////////////////////////
-
-	glBindVertexArray(vao[1]);
-	cout << "vao[1] = " << vao[1] << endl;
-
-	assert(glGetError() == GL_NONE);
-
-	glGenBuffers(1, &gVertexAttribBuffer);
-	glGenBuffers(1, &gIndexBuffer);
-
-	assert(gVertexAttribBuffer > 0 && gIndexBuffer > 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer);
-
+	int gVertexDataSizeInBytes, gNormalDataSizeInBytes;
 	gVertexDataSizeInBytes = gVertices.size() * 3 * sizeof(GLfloat);
 	gNormalDataSizeInBytes = gNormals.size() * 3 * sizeof(GLfloat);
 	int indexDataSizeInBytes = gFaces.size() * 3 * sizeof(GLuint);
@@ -505,27 +520,48 @@ void initVBO()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	//glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
 
-	///////////////////////////////////////
+	FaceCount = gFaces.size();
+}
 
-	glBindVertexArray(vao[2]);
-	cout << "vao[0] = " << vao[2] << endl;
+void initVBO()
+{
+	glGenVertexArrays(10, &vao[0]);
+	assert(vao[0] > 0);
+
+	////////////////////////////////////////////////////////////////
+
+	glBindVertexArray(vao[0]);
+	cout << "vao[0] = " << vao[0] << endl;
 
 	assert(glGetError() == GL_NONE);
 
-	glGenBuffers(1, &gGroundVertexBuffer);
+	glGenBuffers(1, &gSkyVertexBuffer);
+	glGenBuffers(1, &gSkyIndexBuffer);
 
-	assert(&gGroundVertexBuffer > 0);
+	assert(&gSkyVertexBuffer > 0 && &gSkyIndexBuffer > 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, gGroundVertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(groundVertices), &groundVertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, gSkyVertexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(skyboxIndices), &skyboxIndices, GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (GLvoid *)0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
+
+	/////////////////////////////////////////////////////////////////
+
+	initObj(gBodyVertexBuffer, gBodyIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_body.obj", 1, gBodyFaceCount);
+
+	///////////////////////////////////////
+
+	initObj(gGroundVertexBuffer, gGroundIndexBuffer, "hw2_support_files/obj/ground.obj", 2, gGroundFaceCount);
+
+	////////////////////////////////////////
+
+	initObj(gStatueVertexBuffer, gStatueIndexBuffer, "hw2_support_files/obj/armadillo.obj", 3, gStatueFaceCount);
+
 }
 
 void initTextures()
@@ -537,19 +573,28 @@ void initTextures()
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
 
-	const char* skybox_images[] = {"hw2_support_files/skybox_texture_ruins/right.png", 
-							"hw2_support_files/skybox_texture_ruins/left.png", 
-							"hw2_support_files/skybox_texture_ruins/top.png", 
-							"hw2_support_files/skybox_texture_ruins/bottom.png", 
-							"hw2_support_files/skybox_texture_ruins/front.png", 
-							"hw2_support_files/skybox_texture_ruins/back.png"};
+	const char* skybox_images[] = {"hw2_support_files/skybox_texture_abandoned_village/right.png", 
+							"hw2_support_files/skybox_texture_abandoned_village/left.png", 
+							"hw2_support_files/skybox_texture_abandoned_village/top.png", 
+							"hw2_support_files/skybox_texture_abandoned_village/bottom.png", 
+							"hw2_support_files/skybox_texture_abandoned_village/front.png", 
+							"hw2_support_files/skybox_texture_abandoned_village/back.png"};
+
+	//const char* skybox_images[] = {"hw2_support_files/skybox_texture_test/right.jpg", 
+	//						"hw2_support_files/skybox_texture_test/left.jpg", 
+	//						"hw2_support_files/skybox_texture_test/top.jpg", 
+	//						"hw2_support_files/skybox_texture_test/bottom.jpg", 
+	//						"hw2_support_files/skybox_texture_test/front.jpg", 
+	//						"hw2_support_files/skybox_texture_test/back.jpg"};
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+	//stbi_set_flip_vertically_on_load(true);
 	for (int i = 0; i < 6; i ++)
 	{
 		data = stbi_load(skybox_images[i], &width, &height, &nrChannels, 0);
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		stbi_image_free(data);
 	}
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -596,59 +641,91 @@ void setShader(int index)
 	glUniformMatrix4fv(viewingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(viewingMatrix[index]));
 	glUniformMatrix4fv(modelingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(modelingMatrix[index]));
 	glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
-	glUniform1i(groundTexLoc, 1);
+
+	switch (index)
+	{
+	case 0:
+		glUniform1i(skyTexLoc, 0);
+		break;
+	
+	case 2:
+		glUniform1i(groundTexLoc, 1);
+		break;
+	}
 }
 
 void display()
 {
+
+	float angleRad = (float)(angle / 180.0) * M_PI;
+
 	glClearColor(0, 0, 0, 1);
 	glClearDepth(1.0f);
 	glClearStencil(0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	// Compute matrices
+	for (int i = 0; i < 10; i ++)
+	{
+		viewingMatrix[i] = glm::lookAt(eyePos, eyePos + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+	// Skybox
 	//viewingMatrix[0] = glm::mat4(1);
-	viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	modelingMatrix[0] = glm::mat4(1.0f);
 
-	viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	modelingMatrix[0] = glm::mat4(1.0f);
+	// Car body
+	//viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.1f, -0.2f, -7.0f));
+	glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
+	glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-180. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
+	glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 0.0, 1.0));
+	modelingMatrix[1] = matT * matRz * matRy * matRx;
 
+	// Ground
 	//viewingMatrix[2] = glm::mat4(1);
-	viewingMatrix[2] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	modelingMatrix[2] = glm::mat4(1.0f);
+	//viewingMatrix[2] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 matS = glm::scale(glm::mat4(1.0), glm::vec3(100.0f, 100.0f, 100.0f));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, -2.0f, 0.0f));
+	matRx = glm::rotate<float>(glm::mat4(1.0), (90. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
+	modelingMatrix[2] = matT * matRx * matS;
+	//modelingMatrix[2] = glm::mat4(1.0f);
 
-	// Compute the modeling matrix
-	//glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.1f, -0.2f, -7.0f));
-	//glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
-	//glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-180. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
-	//glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), 0, glm::vec3(0.0, 0.0, 1.0));
-	//modelingMatrix[1] = matT * matRz * matRy * matRx;
+	// Statue
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.0f, 5.0f));
+	modelingMatrix[3] = matT;
 
-	// Draw the scene
+	// Skybox
 	glDepthMask(GL_FALSE);
+	//glDepthFunc(GL_LEQUAL);
 	setShader(0);
 	glBindVertexArray(vao[0]);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-	//-glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+	//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	//glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 
+	// Car body
+	setShader(1);
 	glBindVertexArray(vao[1]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gBodyIndexBuffer);
+	//glDrawElements(GL_TRIANGLES, gBodyFaceCount * 3, GL_UNSIGNED_INT, 0);
 
-	//glDrawElements(GL_TRIANGLES, gFaces.size() * 3, GL_UNSIGNED_INT, 0);
-
-	//glBindBuffer(GL_ARRAY_BUFFER, gSkyVertexBuffer);
-
-	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-	//glDrawArrays(GL_TRIANGLES, 0, 12);
-
+	// Ground
 	setShader(2);
 	glBindVertexArray(vao[2]);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, gTexGround);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gGroundIndexBuffer);
+	glDrawElements(GL_TRIANGLES, gGroundFaceCount * 3, GL_UNSIGNED_INT, 0);
+
+	// Statue
+	setShader(3);
+	glBindVertexArray(vao[3]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gStatueIndexBuffer);
+	glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
 }
 
 void reshape(GLFWwindow* window, int w, int h)
@@ -668,11 +745,11 @@ void reshape(GLFWwindow* window, int w, int h)
 
 	// Use perspective projection
 
-	float fovyRad = (float)(45.0 / 180.0) * M_PI;
-	fovyRad = (float)(90.0 / 180.0) * M_PI;
+	float fovyRad = (float)(60.0 / 180.0) * M_PI;
+	//fovyRad = (float)(80.0 / 180.0) * M_PI;
 	for (int i = 0; i < 10; i ++)
 	{
-		projectionMatrix[i] = glm::perspective(fovyRad, w/(float) h, 1.0f, 100.0f);
+		projectionMatrix[i] = glm::perspective(fovyRad, w/(float) h, 0.1f, 100.0f);
 	}
 
 	// Assume default camera position and orientation (camera is at
@@ -688,7 +765,15 @@ void reshape(GLFWwindow* window, int w, int h)
 
 void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	if (key == GLFW_KEY_Q && action == GLFW_PRESS)
+	if (key == GLFW_KEY_A && action == GLFW_PRESS)
+	{
+		angle += 10;
+	}
+	else if (key == GLFW_KEY_D && action == GLFW_PRESS)
+	{
+		angle -= 10;
+	} 
+	else if (key == GLFW_KEY_Q && action == GLFW_PRESS)
 	{
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 	}
