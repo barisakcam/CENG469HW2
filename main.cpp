@@ -66,20 +66,30 @@ const GLfloat skyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
+const GLfloat groundVertices[] = {
+	//positions			  //texture
+	-1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
+    -1.0f, -1.0f, -1.0f,  0.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,  1.0f,  0.0f,
+    -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
+};
+
 using namespace std;
 
 //0: body, 1: skybox
-GLuint gProgram[2];
+GLuint gProgram[10];
 int gWidth, gHeight;
 
-GLint modelingMatrixLoc[2];
-GLint viewingMatrixLoc[2];
-GLint projectionMatrixLoc[2];
-GLint eyePosLoc[2];
+GLint modelingMatrixLoc[10];
+GLint viewingMatrixLoc[10];
+GLint projectionMatrixLoc[10];
+GLint eyePosLoc[10];
 
-glm::mat4 projectionMatrix;
-glm::mat4 viewingMatrix;
-glm::mat4 modelingMatrix;
+glm::mat4 projectionMatrix[10];
+glm::mat4 viewingMatrix[10];
+glm::mat4 modelingMatrix[10];
 glm::vec3 eyePos(0, 0, 0);
 
 int activeProgramIndex = 0;
@@ -124,19 +134,21 @@ vector<Normal> gNormals;
 vector<Face> gFaces;
 
 GLuint vao[10];
-GLuint car_vao;
 
 GLuint gVertexAttribBuffer;
 GLuint gIndexBuffer;
 
 GLuint gSkyVertexBuffer;
-GLuint gSkyIndexBuffer;
+
+GLuint gGroundVertexBuffer;
 
 GLint gInVertexLoc, gInNormalLoc;
 int gVertexDataSizeInBytes, gNormalDataSizeInBytes;
 int skyboxBufferSize = 3 * 6 * 6;
 
 GLuint gTexCube;
+GLuint gTexGround;
+
 GLuint CubeSampler;
 
 bool ParseObj(const string& fileName)
@@ -324,6 +336,7 @@ void initShaders()
 
 	gProgram[0] = glCreateProgram();
 	gProgram[1] = glCreateProgram();
+	gProgram[2] = glCreateProgram();
 
 	// Create the shaders for both programs
 
@@ -333,6 +346,9 @@ void initShaders()
 	GLuint vs2 = createVS("shaders/body_vert.glsl");
 	GLuint fs2 = createFS("shaders/body_frag.glsl");
 
+	GLuint vs3 = createVS("shaders/ground_vert.glsl");
+	GLuint fs3 = createFS("shaders/ground_frag.glsl");
+
 	// Attach the shaders to the programs
 
 	glAttachShader(gProgram[0], vs1);
@@ -341,10 +357,14 @@ void initShaders()
 	glAttachShader(gProgram[1], vs2);
 	glAttachShader(gProgram[1], fs2);
 
+	glAttachShader(gProgram[2], vs3);
+	glAttachShader(gProgram[2], fs3);
+
 	// Link the programs
 
-	glLinkProgram(gProgram[0]);
 	GLint status;
+
+	glLinkProgram(gProgram[0]);
 	glGetProgramiv(gProgram[0], GL_LINK_STATUS, &status);
 
 	if (status != GL_TRUE)
@@ -362,9 +382,18 @@ void initShaders()
 		exit(-1);
 	}
 
+	glLinkProgram(gProgram[2]);
+	glGetProgramiv(gProgram[2], GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		cout << "Program link failed" << endl;
+		exit(-1);
+	}
+
 	// Get the locations of the uniform variables from both programs
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < 3; ++i)
 	{
 		modelingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "modelingMatrix");
 		viewingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "viewingMatrix");
@@ -475,15 +504,37 @@ void initVBO()
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
 	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 	//glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
+
+	///////////////////////////////////////
+
+	glBindVertexArray(vao[2]);
+	cout << "vao[0] = " << vao[2] << endl;
+
+	assert(glGetError() == GL_NONE);
+
+	glGenBuffers(1, &gGroundVertexBuffer);
+
+	assert(&gGroundVertexBuffer > 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, gGroundVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(groundVertices), &groundVertices, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (GLvoid *)0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 }
 
 void initTextures()
 {
+	int width, height, nrChannels;
+	unsigned char *data;
+
 	glGenTextures(1, &gTexCube);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
 
-	const char* images[] = {"hw2_support_files/skybox_texture_ruins/right.png", 
+	const char* skybox_images[] = {"hw2_support_files/skybox_texture_ruins/right.png", 
 							"hw2_support_files/skybox_texture_ruins/left.png", 
 							"hw2_support_files/skybox_texture_ruins/top.png", 
 							"hw2_support_files/skybox_texture_ruins/bottom.png", 
@@ -494,8 +545,7 @@ void initTextures()
 
 	for (int i = 0; i < 6; i ++)
 	{
-		int width, height, nrChannels;
-		unsigned char *data = stbi_load(images[i], &width, &height, &nrChannels, 0);
+		data = stbi_load(skybox_images[i], &width, &height, &nrChannels, 0);
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	}
 
@@ -508,6 +558,25 @@ void initTextures()
 	glSamplerParameteri(CubeSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glSamplerParameteri(CubeSampler, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 	glBindSampler(0, CubeSampler);
+
+	/////////////////////////////////////
+
+	glGenTextures(1, &gTexGround);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, gTexCube);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	const char* ground_image = "hw2_support_files/ground_texture_sand.jpg";
+
+	data = stbi_load(ground_image, &width, &height, &nrChannels, 0);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
 }
 
 void init()
@@ -518,21 +587,47 @@ void init()
 	initTextures();
 }
 
-void drawModel()
+void setShader(int index)
 {
-	//glBindBuffer(GL_ARRAY_BUFFER, gVertexAttribBuffer);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBuffer);
+	glUseProgram(gProgram[index]);
+	glUniformMatrix4fv(projectionMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(projectionMatrix[index]));
+	glUniformMatrix4fv(viewingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(viewingMatrix[index]));
+	glUniformMatrix4fv(modelingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(modelingMatrix[index]));
+	glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
+}
 
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	//glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(gVertexDataSizeInBytes));
+void display()
+{
+	glClearColor(0, 0, 0, 1);
+	glClearDepth(1.0f);
+	glClearStencil(0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+	// Compute matrices
+	//viewingMatrix[0] = glm::mat4(1);
+	viewingMatrix[0] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelingMatrix[0] = glm::mat4(1.0f);
 
-	//glBindVertexArray(car_vao);
+	viewingMatrix[1] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelingMatrix[0] = glm::mat4(1.0f);
+
+	//viewingMatrix[2] = glm::mat4(1);
+	viewingMatrix[2] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelingMatrix[2] = glm::mat4(1.0f);
+
+	// Compute the modeling matrix
+	//glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.1f, -0.2f, -7.0f));
+	//glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
+	//glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-180. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
+	//glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), 0, glm::vec3(0.0, 0.0, 1.0));
+	//modelingMatrix[1] = matT * matRz * matRy * matRx;
+
+	// Draw the scene
 	glDepthMask(GL_FALSE);
-	glUseProgram(gProgram[0]);
+	setShader(0);
 	glBindVertexArray(vao[0]);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
+	//glDrawArrays(GL_TRIANGLES, 0, 36);
 	glDepthMask(GL_TRUE);
 
 	glBindVertexArray(vao[1]);
@@ -544,38 +639,11 @@ void drawModel()
 	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
 	//glDrawArrays(GL_TRIANGLES, 0, 12);
-}
 
-void display()
-{
-	glClearColor(0, 0, 0, 1);
-	glClearDepth(1.0f);
-	glClearStencil(0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-	static float angle = 0;
-
-	float angleRad = (float)(angle / 180.0) * M_PI;
-
-	// Compute the modeling matrix
-	glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.1f, -0.2f, -7.0f));
-	glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
-	glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-180. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
-	glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), 0, glm::vec3(0.0, 0.0, 1.0));
-	modelingMatrix = matT * matRz * matRy * matRx;
-	modelingMatrix = glm::mat4(1.0f);
-
-	// Set the active program and the values of its uniform variables
-	glUseProgram(gProgram[activeProgramIndex]);
-	glUniformMatrix4fv(projectionMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	glUniformMatrix4fv(viewingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(viewingMatrix));
-	glUniformMatrix4fv(modelingMatrixLoc[activeProgramIndex], 1, GL_FALSE, glm::value_ptr(modelingMatrix));
-	glUniform3fv(eyePosLoc[activeProgramIndex], 1, glm::value_ptr(eyePos));
-
-	// Draw the scene
-	drawModel();
-
-	angle += 0.5;
+	setShader(2);
+	glBindVertexArray(vao[2]);
+	glBindTexture(GL_TEXTURE_2D, gTexCube);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void reshape(GLFWwindow* window, int w, int h)
@@ -596,14 +664,17 @@ void reshape(GLFWwindow* window, int w, int h)
 	// Use perspective projection
 
 	float fovyRad = (float)(45.0 / 180.0) * M_PI;
-	projectionMatrix = glm::perspective(fovyRad, w/(float) h, 1.0f, 100.0f);
+	fovyRad = (float)(90.0 / 180.0) * M_PI;
+	for (int i = 0; i < 10; i ++)
+	{
+		projectionMatrix[i] = glm::perspective(fovyRad, w/(float) h, 1.0f, 100.0f);
+	}
 
 	// Assume default camera position and orientation (camera is at
 	// (0, 0, 0) with looking at -z direction and its up vector pointing
 	// at +y direction)
 
-	viewingMatrix = glm::mat4(1);
-	viewingMatrix = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//viewingMatrix[1] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	//glm::mat4 view = glm::mat4(glm::mat3(camera.GetViewMatrix()));  
 
 	//glMatrixMode(GL_MODELVIEW);
