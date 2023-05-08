@@ -69,10 +69,10 @@ const GLfloat skyboxVertices[] = {
 const GLfloat groundVertices[] = {
 	//positions			  //texture
 	-1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
-    -1.0f, -1.0f, -1.0f,  0.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,  1.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f, -1.0f,  1.0f,  0.0f,
+    -1.0f, -1.0f, -1.0f,  0.0f,  2.0f,
+     1.0f, -1.0f, -1.0f,  2.0f,  2.0f,
+     1.0f, -1.0f, -1.0f,  2.0f,  2.0f,
+     1.0f,  1.0f, -1.0f,  2.0f,  0.0f,
     -1.0f,  1.0f, -1.0f,  0.0f,  0.0f,
 };
 
@@ -90,7 +90,7 @@ GLint eyePosLoc[10];
 glm::mat4 projectionMatrix[10];
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
-glm::vec3 eyePos(0, 0, 0);
+glm::vec3 eyePos(0, 0.3, 0);
 
 int activeProgramIndex = 0;
 
@@ -141,6 +141,7 @@ GLuint gIndexBuffer;
 GLuint gSkyVertexBuffer;
 
 GLuint gGroundVertexBuffer;
+GLint groundTexLoc;
 
 GLint gInVertexLoc, gInNormalLoc;
 int gVertexDataSizeInBytes, gNormalDataSizeInBytes;
@@ -400,6 +401,8 @@ void initShaders()
 		projectionMatrixLoc[i] = glGetUniformLocation(gProgram[i], "projectionMatrix");
 		eyePosLoc[i] = glGetUniformLocation(gProgram[i], "eyePos");
 	}
+
+	groundTexLoc = glGetUniformLocation(gProgram[2], "groundTex");
 }
 
 void initVBO()
@@ -563,7 +566,7 @@ void initTextures()
 
 	glGenTextures(1, &gTexGround);
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, gTexCube);
+	glBindTexture(GL_TEXTURE_2D, gTexGround);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -576,7 +579,6 @@ void initTextures()
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	glGenerateMipmap(GL_TEXTURE_2D);
-
 }
 
 void init()
@@ -594,6 +596,7 @@ void setShader(int index)
 	glUniformMatrix4fv(viewingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(viewingMatrix[index]));
 	glUniformMatrix4fv(modelingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(modelingMatrix[index]));
 	glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
+	glUniform1i(groundTexLoc, 1);
 }
 
 void display()
@@ -605,14 +608,14 @@ void display()
 
 	// Compute matrices
 	//viewingMatrix[0] = glm::mat4(1);
-	viewingMatrix[0] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	modelingMatrix[0] = glm::mat4(1.0f);
 
-	viewingMatrix[1] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	modelingMatrix[0] = glm::mat4(1.0f);
 
 	//viewingMatrix[2] = glm::mat4(1);
-	viewingMatrix[2] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	viewingMatrix[2] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	modelingMatrix[2] = glm::mat4(1.0f);
 
 	// Compute the modeling matrix
@@ -626,8 +629,9 @@ void display()
 	glDepthMask(GL_FALSE);
 	setShader(0);
 	glBindVertexArray(vao[0]);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-	//glDrawArrays(GL_TRIANGLES, 0, 36);
+	//-glDrawArrays(GL_TRIANGLES, 0, 36);
 	glDepthMask(GL_TRUE);
 
 	glBindVertexArray(vao[1]);
@@ -642,7 +646,8 @@ void display()
 
 	setShader(2);
 	glBindVertexArray(vao[2]);
-	glBindTexture(GL_TEXTURE_2D, gTexCube);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, gTexGround);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 

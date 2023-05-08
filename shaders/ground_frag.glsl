@@ -1,14 +1,12 @@
 #version 420
 
-uniform samplerCube myCubeSampler;
-
 in vec2 texCoord;
 out vec4 fragColor;
 
 // texture sampler
-uniform sampler2D texture1;
+uniform sampler2D groundTex;
 
 void main(void)
 {
-    fragColor = texture(texture1, texCoord);
+    fragColor = texture(groundTex, texCoord);
 }
