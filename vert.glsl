@@ -1,4 +1,4 @@
-#version 460 core
+#version 420 core
 
 // All of the following variables could be defined in the OpenGL
 // program and passed to this shader as uniform variables. This
