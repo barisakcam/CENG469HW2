@@ -100,7 +100,8 @@ GLint eyePosLoc[10];
 glm::mat4 projectionMatrix[10];
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
-glm::vec3 eyePos(0, 0, 0);
+glm::vec3 skyboxEyePos;
+glm::vec3 eyePos;
 
 int activeProgramIndex = 0;
 
@@ -164,12 +165,32 @@ GLuint gStatueVertexBuffer;
 GLuint gStatueIndexBuffer;
 GLint gStatueFaceCount;
 
+GLuint gTireVertexBuffer;
+GLuint gTireIndexBuffer;
+GLint gTireFaceCount;
+
+GLuint gWindowVertexBuffer;
+GLuint gWindowIndexBuffer;
+GLint gWindowFaceCount;
+
 GLint gInVertexLoc, gInNormalLoc;
 int skyboxBufferSize = 3 * 6 * 6;
 
 GLuint CubeSampler;
 
 GLfloat angle = 0;
+GLfloat carPosx = 0;
+GLfloat carPosz = 10;
+GLfloat speed = 0;
+GLfloat tireRot = 0;
+
+bool angleInc = false;
+bool angleDec = false;
+bool speedInc = false;
+bool speedDec = false;
+
+enum CameraDir {BACK, FRONT, LEFT, RIGHT};
+CameraDir camDir = BACK;
 
 bool ParseObj(const string& fileName)
 {
@@ -354,38 +375,52 @@ void initShaders()
 {
 	// Create the programs
 
-	gProgram[0] = glCreateProgram();
-	gProgram[1] = glCreateProgram();
-	gProgram[2] = glCreateProgram();
-	gProgram[3] = glCreateProgram();
+	gProgram[0] = glCreateProgram(); // Skybox
+	gProgram[1] = glCreateProgram(); // Body
+	gProgram[2] = glCreateProgram(); // Ground
+	gProgram[3] = glCreateProgram(); // Statue
+	gProgram[4] = glCreateProgram(); // Tires
+	gProgram[5] = glCreateProgram(); // Windows
 
 	// Create the shaders for both programs
 
-	GLuint vs1 = createVS("shaders/sky_vert.glsl");
-	GLuint fs1 = createFS("shaders/sky_frag.glsl");
+	GLuint vs0 = createVS("shaders/sky_vert.glsl");
+	GLuint fs0 = createFS("shaders/sky_frag.glsl");
 
-	GLuint vs2 = createVS("shaders/body_vert.glsl");
-	GLuint fs2 = createFS("shaders/body_frag.glsl");
+	GLuint vs1 = createVS("shaders/body_vert.glsl");
+	GLuint fs1 = createFS("shaders/body_frag.glsl");
 
-	GLuint vs3 = createVS("shaders/ground_vert.glsl");
-	GLuint fs3 = createFS("shaders/ground_frag.glsl");
+	GLuint vs2 = createVS("shaders/ground_vert.glsl");
+	GLuint fs2 = createFS("shaders/ground_frag.glsl");
 
-	GLuint vs4 = createVS("shaders/statue_vert.glsl");
-	GLuint fs4 = createFS("shaders/statue_frag.glsl");
+	GLuint vs3 = createVS("shaders/statue_vert.glsl");
+	GLuint fs3 = createFS("shaders/statue_frag.glsl");
+
+	GLuint vs4 = createVS("shaders/tire_vert.glsl");
+	GLuint fs4 = createFS("shaders/tire_frag.glsl");
+
+	GLuint vs5 = createVS("shaders/window_vert.glsl");
+	GLuint fs5 = createFS("shaders/window_frag.glsl");
 
 	// Attach the shaders to the programs
 
-	glAttachShader(gProgram[0], vs1);
-	glAttachShader(gProgram[0], fs1);
+	glAttachShader(gProgram[0], vs0);
+	glAttachShader(gProgram[0], fs0);
 
-	glAttachShader(gProgram[1], vs2);
-	glAttachShader(gProgram[1], fs2);
+	glAttachShader(gProgram[1], vs1);
+	glAttachShader(gProgram[1], fs1);
 
-	glAttachShader(gProgram[2], vs3);
-	glAttachShader(gProgram[2], fs3);
+	glAttachShader(gProgram[2], vs2);
+	glAttachShader(gProgram[2], fs2);
 
-	glAttachShader(gProgram[3], vs4);
-	glAttachShader(gProgram[3], fs4);
+	glAttachShader(gProgram[3], vs3);
+	glAttachShader(gProgram[3], fs3);
+
+	glAttachShader(gProgram[4], vs4);
+	glAttachShader(gProgram[4], fs4);
+
+	glAttachShader(gProgram[5], vs5);
+	glAttachShader(gProgram[5], fs5);
 
 	// Link the programs
 
@@ -427,9 +462,28 @@ void initShaders()
 		exit(-1);
 	}
 
+	glLinkProgram(gProgram[4]);
+	glGetProgramiv(gProgram[4], GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		cout << "Program link failed" << endl;
+		exit(-1);
+	}
+
+	glLinkProgram(gProgram[5]);
+	glGetProgramiv(gProgram[5], GL_LINK_STATUS, &status);
+
+	if (status != GL_TRUE)
+	{
+		cout << "Program link failed" << endl;
+		exit(-1);
+	}
+
+
 	// Get the locations of the uniform variables from both programs
 
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < 6; ++ i)
 	{
 		modelingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "modelingMatrix");
 		viewingMatrixLoc[i] = glGetUniformLocation(gProgram[i], "viewingMatrix");
@@ -550,7 +604,9 @@ void initVBO()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
 
-	/////////////////////////////////////////////////////////////////
+	skyboxEyePos = glm::vec3(0, 0, 0);
+
+	///////////////////////////////////////
 
 	initObj(gBodyVertexBuffer, gBodyIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_body.obj", 1, gBodyFaceCount);
 
@@ -561,6 +617,14 @@ void initVBO()
 	////////////////////////////////////////
 
 	initObj(gStatueVertexBuffer, gStatueIndexBuffer, "hw2_support_files/obj/armadillo.obj", 3, gStatueFaceCount);
+
+	////////////////////////////////////////
+
+	initObj(gTireVertexBuffer, gTireIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_tires.obj", 4, gTireFaceCount);
+
+	////////////////////////////////////////
+
+	initObj(gWindowVertexBuffer, gWindowIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_windows.obj", 5, gWindowFaceCount);
 
 }
 
@@ -640,59 +704,139 @@ void setShader(int index)
 	glUniformMatrix4fv(projectionMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(projectionMatrix[index]));
 	glUniformMatrix4fv(viewingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(viewingMatrix[index]));
 	glUniformMatrix4fv(modelingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(modelingMatrix[index]));
-	glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
 
 	switch (index)
 	{
 	case 0:
+		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(skyboxEyePos));
 		glUniform1i(skyTexLoc, 0);
 		break;
 	
 	case 2:
 		glUniform1i(groundTexLoc, 1);
+	
+	default:
+		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
 		break;
 	}
 }
 
 void display()
 {
+	if (speedInc /*&& speed < 0.04*/)
+	{
+		speed += 0.0001;
+	}
+	if (speedDec /*&& speed > -0.04*/)
+	{
+		speed -= 0.0001;
+	}
+	if (angleInc)
+	{
+		angle += 0.15;
+	}
+	if (angleDec)
+	{
+		angle -= 0.15;
+	}
 
 	float angleRad = (float)(angle / 180.0) * M_PI;
+	float tireRotRad = (float)(tireRot / 180.0) * M_PI;
+
+	//tireRot += 0.5;
+
+	carPosx += speed * glm::sin(angleRad);
+	carPosz += speed * glm::cos(angleRad);
 
 	glClearColor(0, 0, 0, 1);
 	glClearDepth(1.0f);
 	glClearStencil(0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	for (int i = 0; i < 10; i ++)
-	{
-		viewingMatrix[i] = glm::lookAt(eyePos, eyePos + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
-	}
+	glm::mat4 matT;
+	glm::mat4 matS;
+	glm::mat4 matRx;
+	glm::mat4 matRy;
+	glm::mat4 matRz;
+
 	// Skybox
 	//viewingMatrix[0] = glm::mat4(1);
 	//viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	modelingMatrix[0] = glm::mat4(1.0f);
+	matRy = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
+	modelingMatrix[0] = matRy;
 
 	// Car body
 	//viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	glm::mat4 matT = glm::translate(glm::mat4(1.0), glm::vec3(-0.1f, -0.2f, -7.0f));
-	glm::mat4 matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
-	glm::mat4 matRy = glm::rotate<float>(glm::mat4(1.0), (-180. / 180.) * M_PI, glm::vec3(0.0, 1.0, 0.0));
-	glm::mat4 matRz = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 0.0, 1.0));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(carPosx, 1.0f, carPosz));
+	matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
+	matRy = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
+	matRz = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(0.0, 0.0, 1.0));
 	modelingMatrix[1] = matT * matRz * matRy * matRx;
 
 	// Ground
 	//viewingMatrix[2] = glm::mat4(1);
 	//viewingMatrix[2] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	glm::mat4 matS = glm::scale(glm::mat4(1.0), glm::vec3(100.0f, 100.0f, 100.0f));
-	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, -2.0f, 0.0f));
+	matS = glm::scale(glm::mat4(1.0), glm::vec3(100.0f, 100.0f, 100.0f));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.0f, 0.0f));
 	matRx = glm::rotate<float>(glm::mat4(1.0), (90. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
 	modelingMatrix[2] = matT * matRx * matS;
 	//modelingMatrix[2] = glm::mat4(1.0f);
 
 	// Statue
-	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.0f, 5.0f));
-	modelingMatrix[3] = matT;
+	matS = glm::scale(glm::mat4(1.0), glm::vec3(4.0f, 4.0f, 4.0f));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(5.0f, 4.0f, 15.0f));
+	modelingMatrix[3] = matT * matS;
+
+	// Tires
+	//viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//glm::mat4 matW0 = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.37f, -2.585f));
+	//glm::mat4 matW1 = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, -0.37f, 2.585f));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(carPosx, 1.0f, carPosz));
+	matRx = glm::rotate<float>(glm::mat4(1.0), tireRotRad, glm::vec3(1.0, 0.0, 0.0));
+	matRy = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
+	matRz = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(0.0, 0.0, 1.0));
+	//modelingMatrix[4] = matT * matW1 * matRz * matRy * matRx * matW0;
+	modelingMatrix[4] = matT * matRz * matRy * matRx;
+
+	// Windows
+	//viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	matT = glm::translate(glm::mat4(1.0), glm::vec3(carPosx, 1.0f, carPosz));
+	matRx = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
+	matRy = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
+	matRz = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(0.0, 0.0, 1.0));
+	modelingMatrix[5] = matT * matRz * matRy * matRx;
+
+	switch (camDir)
+	{
+		case BACK:
+			eyePos = glm::vec3(carPosx - 8. * sin(angleRad), 3.5, carPosz - 8. * cos(angleRad));
+			break;
+		
+		case FRONT:
+			eyePos = glm::vec3(carPosx + 8. * sin(angleRad), 3.5, carPosz + 8. * cos(angleRad));
+			break; 
+
+		case LEFT:
+			eyePos = glm::vec3(carPosx + 8. * cos(angleRad), 3.5, carPosz - 8. * sin(angleRad));
+			break;
+
+		case RIGHT:
+			eyePos = glm::vec3(carPosx - 8. * cos(angleRad), 3.5, carPosz + 8. * sin(angleRad));
+			break;
+	}
+
+	for (int i = 0; i < 10; i ++)
+	{
+		//viewingMatrix[i] = glm::lookAt(eyePos[i], eyePos[i] + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
+		if (i == 0)
+		{
+			viewingMatrix[i] = glm::lookAt(skyboxEyePos, skyboxEyePos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+		else
+		{
+			viewingMatrix[i] = glm::lookAt(eyePos, glm::vec3(carPosx, 0.0f, carPosz), glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+	}
 
 	// Skybox
 	glDepthMask(GL_FALSE);
@@ -711,7 +855,7 @@ void display()
 	setShader(1);
 	glBindVertexArray(vao[1]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gBodyIndexBuffer);
-	//glDrawElements(GL_TRIANGLES, gBodyFaceCount * 3, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, gBodyFaceCount * 3, GL_UNSIGNED_INT, 0);
 
 	// Ground
 	setShader(2);
@@ -726,6 +870,18 @@ void display()
 	glBindVertexArray(vao[3]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gStatueIndexBuffer);
 	glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
+
+	// Tires
+	setShader(4);
+	glBindVertexArray(vao[4]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gTireIndexBuffer);
+	glDrawElements(GL_TRIANGLES, gTireFaceCount * 3, GL_UNSIGNED_INT, 0);
+
+	// Windows
+	setShader(5);
+	glBindVertexArray(vao[5]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gWindowIndexBuffer);
+	glDrawElements(GL_TRIANGLES, gWindowFaceCount * 3, GL_UNSIGNED_INT, 0);
 }
 
 void reshape(GLFWwindow* window, int w, int h)
@@ -767,29 +923,60 @@ void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_A && action == GLFW_PRESS)
 	{
-		angle += 10;
+		//angle += 10;
+		angleInc = true;
 	}
 	else if (key == GLFW_KEY_D && action == GLFW_PRESS)
 	{
-		angle -= 10;
+		//angle -= 10;
+		angleDec = true;
+	}
+	else if (key == GLFW_KEY_W && action == GLFW_PRESS)
+	{
+		//speed += 0.01;
+		speedInc = true;
 	} 
+	else if (key == GLFW_KEY_S && action == GLFW_PRESS)
+	{
+		//speed -= 0.01;
+		speedDec = true;
+	}
+	if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+	{
+		//angle += 10;
+		angleInc = false;
+	}
+	else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+	{
+		//angle -= 10;
+		angleDec = false;
+	}
+	else if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+	{
+		//speed += 0.01;
+		speedInc = false;
+	} 
+	else if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+	{
+		//speed -= 0.01;
+		speedDec = false;
+	}
+	
 	else if (key == GLFW_KEY_Q && action == GLFW_PRESS)
 	{
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
+		camDir = LEFT;
 	}
-	else if (key == GLFW_KEY_G && action == GLFW_PRESS)
+	else if (key == GLFW_KEY_E && action == GLFW_PRESS)
 	{
-		//glShadeModel(GL_SMOOTH);
-		activeProgramIndex = 0;
+		camDir = RIGHT;
 	}
-	else if (key == GLFW_KEY_P && action == GLFW_PRESS)
+	else if (key == GLFW_KEY_R && action == GLFW_PRESS)
 	{
-		//glShadeModel(GL_SMOOTH);
-		activeProgramIndex = 1;
+		camDir = BACK;
 	}
-	else if (key == GLFW_KEY_F && action == GLFW_PRESS)
+	else if (key == GLFW_KEY_T && action == GLFW_PRESS)
 	{
-		//glShadeModel(GL_FLAT);
+		camDir = FRONT;
 	}
 }
 
@@ -815,7 +1002,7 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	int width = 640, height = 480;
+	int width = 1280, height = 800;
 	window = glfwCreateWindow(width, height, "Simple Example", NULL, NULL);
 
 	if (!window)
