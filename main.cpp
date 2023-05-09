@@ -760,7 +760,7 @@ void display()
 	// Skybox
 	//viewingMatrix[0] = glm::mat4(1);
 	//viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	matRy = glm::rotate<float>(glm::mat4(1.0), angleRad, glm::vec3(0.0, 1.0, 0.0));
+	matRy = glm::rotate<float>(glm::mat4(1.0), -angleRad, glm::vec3(0.0, 1.0, 0.0));
 	modelingMatrix[0] = matRy;
 
 	// Car body
@@ -774,7 +774,7 @@ void display()
 	// Ground
 	//viewingMatrix[2] = glm::mat4(1);
 	//viewingMatrix[2] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	matS = glm::scale(glm::mat4(1.0), glm::vec3(100.0f, 100.0f, 100.0f));
+	matS = glm::scale(glm::mat4(1.0), glm::vec3(200.0f, 200.0f, 200.0f));
 	matT = glm::translate(glm::mat4(1.0), glm::vec3(0.0f, 0.0f, 0.0f));
 	matRx = glm::rotate<float>(glm::mat4(1.0), (90. / 180.) * M_PI, glm::vec3(1.0, 0.0, 0.0));
 	modelingMatrix[2] = matT * matRx * matS;
@@ -807,19 +807,19 @@ void display()
 	switch (camDir)
 	{
 		case BACK:
-			eyePos = glm::vec3(carPosx - 8. * sin(angleRad), 3.5, carPosz - 8. * cos(angleRad));
+			eyePos = glm::vec3(carPosx - 6. * sin(angleRad), 3, carPosz - 6. * cos(angleRad));
 			break;
 		
 		case FRONT:
-			eyePos = glm::vec3(carPosx + 8. * sin(angleRad), 3.5, carPosz + 8. * cos(angleRad));
+			eyePos = glm::vec3(carPosx + 6. * sin(angleRad), 3, carPosz + 6. * cos(angleRad));
 			break; 
 
 		case LEFT:
-			eyePos = glm::vec3(carPosx + 8. * cos(angleRad), 3.5, carPosz - 8. * sin(angleRad));
+			eyePos = glm::vec3(carPosx + 6. * cos(angleRad), 3, carPosz - 6. * sin(angleRad));
 			break;
 
 		case RIGHT:
-			eyePos = glm::vec3(carPosx - 8. * cos(angleRad), 3.5, carPosz + 8. * sin(angleRad));
+			eyePos = glm::vec3(carPosx - 6. * cos(angleRad), 3, carPosz + 6. * sin(angleRad));
 			break;
 	}
 
@@ -828,7 +828,7 @@ void display()
 		//viewingMatrix[i] = glm::lookAt(eyePos[i], eyePos[i] + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
 		if (i == 0)
 		{
-			viewingMatrix[i] = glm::lookAt(skyboxEyePos, skyboxEyePos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			viewingMatrix[i] = glm::lookAt(skyboxEyePos, skyboxEyePos + glm::vec3(0.0f, -0.5f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 		else
 		{
@@ -899,7 +899,7 @@ void reshape(GLFWwindow* window, int w, int h)
 
 	// Use perspective projection
 
-	float fovyRad = (float)(60.0 / 180.0) * M_PI;
+	float fovyRad = (float)(90.0 / 180.0) * M_PI;
 	//fovyRad = (float)(80.0 / 180.0) * M_PI;
 	for (int i = 0; i < 10; i ++)
 	{
