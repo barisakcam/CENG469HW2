@@ -90,7 +90,8 @@ using namespace std;
 
 //0: body, 1: skybox
 GLuint gProgram[10];
-int gWidth, gHeight;
+int gWidth = 1280, gHeight = 800;
+int dynWidth = 600, dynHeight = 600;
 
 GLint modelingMatrixLoc[10];
 GLint viewingMatrixLoc[10];
@@ -145,6 +146,10 @@ vector<Normal> gNormals;
 vector<Face> gFaces;
 
 GLuint vao[10];
+GLuint fbo;
+GLuint rbo;
+GLuint dynTex;
+GLint dynTexLoc;
 
 GLuint gBodyVertexBuffer;
 GLuint gBodyIndexBuffer;
@@ -493,6 +498,8 @@ void initShaders()
 
 	groundTexLoc = glGetUniformLocation(gProgram[2], "groundTex");
 	skyTexLoc = glGetUniformLocation(gProgram[0], "skyTex");
+	dynTexLoc = glGetUniformLocation(gProgram[1], "dynTex");
+	//skyTexLoc = glGetUniformLocation(gProgram[5], "dynTex");
 }
 
 void initObj(GLuint &vertexBuffer, GLuint &indexBuffer, const std::string &fileName, int vaoIndex, GLint &FaceCount)
@@ -582,6 +589,9 @@ void initVBO()
 {
 	glGenVertexArrays(10, &vao[0]);
 	assert(vao[0] > 0);
+
+	glGenFramebuffers(1, &fbo);
+	glGenRenderbuffers(1, &rbo);
 
 	////////////////////////////////////////////////////////////////
 
@@ -686,6 +696,26 @@ void initTextures()
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glGenTextures(1, &dynTex);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, dynTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, gWidth, gHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dynTex, 0);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, dynWidth, dynHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+	}   
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void init()
@@ -710,9 +740,20 @@ void setShader(int index)
 		glUniform1i(skyTexLoc, 0);
 		break;
 	
+	case 1:
+		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
+		glUniform1i(dynTexLoc, 2);
+		break;
 	case 2:
+		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
 		glUniform1i(groundTexLoc, 1);
-	
+		break;
+
+	case 5:
+		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
+		glUniform1i(dynTexLoc, 2);
+		break;
+
 	default:
 		glUniform3fv(eyePosLoc[index], 1, glm::value_ptr(eyePos));
 		break;
@@ -723,11 +764,11 @@ void display()
 {
 	if (speedInc /*&& speed < 0.04*/)
 	{
-		speed += 0.0001;
+		speed += 0.0004;
 	}
 	if (speedDec /*&& speed > -0.04*/)
 	{
-		speed -= 0.0001;
+		speed -= 0.0004;
 	}
 	if (angleInc)
 	{
@@ -836,6 +877,27 @@ void display()
 		}
 	}
 
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glDepthMask(GL_FALSE);
+	//glDepthFunc(GL_LEQUAL);
+	setShader(0);
+	glBindVertexArray(vao[0]);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+	//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	//glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
+
+
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	// Skybox
 	glDepthMask(GL_FALSE);
 	//glDepthFunc(GL_LEQUAL);
@@ -852,6 +914,8 @@ void display()
 	// Car body
 	setShader(1);
 	glBindVertexArray(vao[1]);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, dynTex);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gBodyIndexBuffer);
 	glDrawElements(GL_TRIANGLES, gBodyFaceCount * 3, GL_UNSIGNED_INT, 0);
 
@@ -1000,8 +1064,7 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	int width = 1280, height = 800;
-	window = glfwCreateWindow(width, height, "Simple Example", NULL, NULL);
+	window = glfwCreateWindow(gWidth, gHeight, "Simple Example", NULL, NULL);
 
 	if (!window)
 	{
@@ -1030,7 +1093,7 @@ int main(int argc, char** argv)   // Create Main Function For Bringing It All To
 	glfwSetKeyCallback(window, keyboard);
 	glfwSetWindowSizeCallback(window, reshape);
 
-	reshape(window, width, height); // need to call this once ourselves
+	reshape(window, gWidth, gHeight); // need to call this once ourselves
 	mainLoop(window); // this does not return unless the window is closed
 
 	glfwDestroyWindow(window);
