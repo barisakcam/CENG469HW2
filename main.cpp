@@ -100,7 +100,7 @@ GLint eyePosLoc[10];
 glm::mat4 projectionMatrix[10];
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
-glm::vec3 skyboxEyePos;
+glm::vec3 skyboxEyePos = glm::vec3(0, 0, 0);;
 glm::vec3 eyePos;
 
 int activeProgramIndex = 0;
@@ -604,8 +604,6 @@ void initVBO()
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
 
-	skyboxEyePos = glm::vec3(0, 0, 0);
-
 	///////////////////////////////////////
 
 	initObj(gBodyVertexBuffer, gBodyIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_body.obj", 1, gBodyFaceCount);
@@ -845,7 +843,7 @@ void display()
 	glBindVertexArray(vao[0]);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
 	//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	//glDepthFunc(GL_LESS);
