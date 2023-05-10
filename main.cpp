@@ -71,7 +71,7 @@ using namespace std;
 //0: body, 1: skybox
 GLuint gProgram[10];
 int gWidth = 1280, gHeight = 800;
-int dynDim = 600;
+int dynDim = 800;
 
 GLint modelingMatrixLoc[10];
 GLint viewingMatrixLoc[10];
