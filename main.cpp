@@ -66,26 +66,6 @@ const GLfloat skyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
-const GLuint skyboxIndices[] = {
-	0,  1,  2,
-	3,  4,  5,
-
-	6,  7,  8,
-	9,  10, 11,
-	
-	12, 13, 14,
-	15, 16, 17,
-
-	18, 19, 20,
-	21, 22, 23,
-	
-	24, 25, 26,
-	27, 28, 29,
-
-	30, 31, 32,
-	33, 34, 35
-};
-
 using namespace std;
 
 //0: body, 1: skybox
@@ -157,7 +137,6 @@ GLuint gBodyIndexBuffer;
 GLint gBodyFaceCount;
 
 GLuint gSkyVertexBuffer;
-GLuint gSkyIndexBuffer;
 GLint skyTexLoc;
 GLuint gTexCube;
 
@@ -602,22 +581,19 @@ void initVBO()
 	assert(glGetError() == GL_NONE);
 
 	glGenBuffers(1, &gSkyVertexBuffer);
-	glGenBuffers(1, &gSkyIndexBuffer);
 
-	assert(&gSkyVertexBuffer > 0 && &gSkyIndexBuffer > 0);
+	assert(&gSkyVertexBuffer > 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, gSkyVertexBuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(skyboxIndices), &skyboxIndices, GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
 
 	///////////////////////////////////////
 
-	initObj(gBodyVertexBuffer, gBodyIndexBuffer, "hw2_support_files/obj/cube.obj", 1, gBodyFaceCount);
+	initObj(gBodyVertexBuffer, gBodyIndexBuffer, "hw2_support_files/obj/cybertruck/cybertruck_body.obj", 1, gBodyFaceCount);
 
 	///////////////////////////////////////
 
@@ -819,7 +795,7 @@ void display()
 	//viewingMatrix[0] = glm::mat4(1);
 	//viewingMatrix[0] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	matRy = glm::rotate<float>(glm::mat4(1.0), -angleRad, glm::vec3(0.0, 1.0, 0.0));
-	modelingMatrix[0] = matRy;
+	modelingMatrix[0] = glm::mat4(1);;
 
 	// Car body
 	//viewingMatrix[1] = glm::lookAt(eyePos, eyePos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -959,22 +935,22 @@ void display()
 	switch (camDir)
 	{
 		case BACK:
-			skyboxEyeDir = glm::vec3(0.0f, -0.5f, 1.0f);
+			skyboxEyeDir = glm::vec3(1.0f * sin(angleRad), -0.5f, 1.0f * cos(angleRad));
 			eyePos = glm::vec3(carPosx - 6. * sin(angleRad), 3, carPosz - 6. * cos(angleRad));
 			break;
 		
 		case FRONT:
-			skyboxEyeDir = glm::vec3(0.0f, -0.5f, -1.0f);
+			skyboxEyeDir = glm::vec3(1.0f * sin(angleRad + (float)(180 / 180.0) * M_PI), -0.5f, 1.0f * cos(angleRad + (float)(180 / 180.0) * M_PI));
 			eyePos = glm::vec3(carPosx + 6. * sin(angleRad), 3, carPosz + 6. * cos(angleRad));
 			break; 
 
 		case LEFT:
-			skyboxEyeDir = glm::vec3(-1.0f, -0.5f, 0.0f);
+			skyboxEyeDir = glm::vec3(1.0f * sin(angleRad - (float)(90 / 180.0) * M_PI), -0.5f, 1.0f * cos(angleRad - (float)(90 / 180.0) * M_PI));
 			eyePos = glm::vec3(carPosx + 6. * cos(angleRad), 3, carPosz - 6. * sin(angleRad));
 			break;
 
 		case RIGHT:
-			skyboxEyeDir = glm::vec3(1.0f, -0.5f, 0.0f);
+			skyboxEyeDir = glm::vec3(1.0f * sin(angleRad + (float)(90 / 180.0) * M_PI), -0.5f, 1.0f * cos(angleRad + (float)(90 / 180.0) * M_PI));
 			eyePos = glm::vec3(carPosx - 6. * cos(angleRad), 3, carPosz + 6. * sin(angleRad));
 			break;
 	}
@@ -1037,13 +1013,13 @@ void display()
 	setShader(4);
 	glBindVertexArray(vao[4]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gTireIndexBuffer);
-	//glDrawElements(GL_TRIANGLES, gTireFaceCount * 3, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, gTireFaceCount * 3, GL_UNSIGNED_INT, 0);
 
 	// Windows
 	setShader(5);
 	glBindVertexArray(vao[5]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gWindowIndexBuffer);
-	//glDrawElements(GL_TRIANGLES, gWindowFaceCount * 3, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, gWindowFaceCount * 3, GL_UNSIGNED_INT, 0);
 }
 
 void reshape(GLFWwindow* window, int w, int h)
