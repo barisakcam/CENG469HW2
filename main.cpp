@@ -98,7 +98,7 @@ GLint viewingMatrixLoc[10];
 GLint projectionMatrixLoc[10];
 GLint eyePosLoc[10];
 
-glm::mat4 projectionMatrix[10];
+glm::mat4 projectionMatrix;
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
 glm::vec3 skyboxEyePos = glm::vec3(0, 0, 0);;
@@ -697,14 +697,27 @@ void initTextures()
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
+	//////////////////////////////////////////////////
+
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glGenTextures(1, &dynTex);
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, dynTex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, gWidth, gHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dynTex, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, dynTex);
+
+	for (int i = 0; i < 6; i ++)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, dynWidth, dynHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+	}
+
+	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	//glBindSampler(2, CubeSampler);
+
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dynTex, 0);
 
 	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, dynWidth, dynHeight);
@@ -713,7 +726,10 @@ void initTextures()
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 	{
 		cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
-	}   
+	}
+
+	GLenum drawBufs[] = {GL_COLOR_ATTACHMENT0};
+	glDrawBuffers(1, drawBufs);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -879,22 +895,48 @@ void display()
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	for (int i = 0; i < 6; i ++)
+	{
+		glClearColor(0, 0, 0, 1);
+		glClearDepth(1.0f);
+		glClearStencil(0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	glDepthMask(GL_FALSE);
-	//glDepthFunc(GL_LEQUAL);
-	setShader(0);
-	glBindVertexArray(vao[0]);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
-	//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	//glDepthFunc(GL_LESS);
-	glDepthMask(GL_TRUE);
+		switch (i)
+		{
+		case 0:
+			break;
+		
+		case 1:
+			break;
+		
+		case 2:
+			break;
+		
+		case 3:
+			break;
+		
+		case 4:
+			break;
+		
+		case 5:
+			break;
+		}
 
+		glDepthMask(GL_FALSE);
+		//glDepthFunc(GL_LEQUAL);
+		setShader(0);
+		glBindVertexArray(vao[0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+		//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
 
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, dynTex, 0);
+	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

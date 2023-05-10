@@ -10,7 +10,7 @@ vec3 Iamb = vec3(0.8, 0.8, 0.8); // ambient light intensity
 vec3 ka = vec3(0.1, 0.5, 0.1);   // ambient reflectance coefficient
 
 uniform vec3 eyePos;
-uniform sampler2D dynTex;
+uniform samplerCube dynTex;
 
 in vec4 fragWorldPos;
 in vec3 fragWorldNor;
@@ -25,7 +25,7 @@ void main(void)
 
 	vec3 ambientColor = Iamb * ka;
 
-	fragColor = texture(dynTex, vec2(fragWorldPos.x, fragWorldPos.z));
+	fragColor = texture(dynTex, vec3(fragWorldPos.x, fragWorldPos.y, fragWorldPos.z));
 	//fragColor = vec4(fragWorldPos.x, fragWorldPos.y, fragWorldPos.z, 1);
 	//fragColor = vec4(ambientColor, 1);
 }
