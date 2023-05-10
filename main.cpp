@@ -869,37 +869,44 @@ void display()
 	projectionMatrix = glm::perspective(fovyRad, 1.0f, 0.1f, 100.0f);
 	eyePos = glm::vec3(carPosx, 1.0f, carPosz);
 	glm::vec3 look;
-	for (int i = 0; i < 6; i ++)
+	glm::vec3 up;
+	for (int j = 0; j < 6; j ++)
 	{
 		glClearColor(0, 0, 0, 1);
 		glClearDepth(1.0f);
 		glClearStencil(0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-		switch (i)
+		switch (j)
 		{
 		case 0:
-			look = glm::vec3(1, 0, 0);
+			look = glm::vec3(1.0f, 0.0f, 0.0f);
+			up = glm::vec3(0.0f, 1.0f, 0.0f);
 			break;
 		
 		case 1:
-			look = glm::vec3(-1, 0, 0);
+			look = glm::vec3(-1.0f, 0.0f, 0.0f);
+			up = glm::vec3(0.0f, 1.0f, 0.0f);
 			break;
 		
 		case 2:
-			look = glm::vec3(0, 1, 0);
+			look = glm::vec3(0.0f, 1.0f, 0.0f);
+			up = glm::vec3(0.0f, 0.0f, 1.0f);
 			break;
 		
 		case 3:
-			look = glm::vec3(0, -1, 0);
+			look = glm::vec3(0.0f, -1.0f, 0.0f);
+			up = glm::vec3(0.0f, 0.0f, -1.0f);
 			break;
 		
 		case 4:
-			look = glm::vec3(0, 0, 1);
+			look = glm::vec3(0.0f, 0.0f, 1.0f);
+			up = glm::vec3(0.0f, 1.0f, 0.0f);
 			break;
 		
 		case 5:
-			look = glm::vec3(0, 0, -1);
+			look = glm::vec3(0.0f, 0.0f, -1.0f);
+			up = glm::vec3(0.0f, 1.0f, 0.0f);
 			break;
 		}
 
@@ -908,11 +915,11 @@ void display()
 			//viewingMatrix[i] = glm::lookAt(eyePos[i], eyePos[i] + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
 			if (i == 0)
 			{
-				viewingMatrix[i] = glm::lookAt(skyboxEyePos, look, glm::vec3(0.0f, 1.0f, 0.0f));
+				viewingMatrix[i] = glm::lookAt(skyboxEyePos, look, up);
 			}
 			else
 			{
-				viewingMatrix[i] = glm::lookAt(eyePos, look, glm::vec3(0.0f, 1.0f, 0.0f));
+				viewingMatrix[i] = glm::lookAt(eyePos, look, up);
 			}
 		}
 
@@ -940,9 +947,9 @@ void display()
 		setShader(3);
 		glBindVertexArray(vao[3]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gStatueIndexBuffer);
-		//glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, dynTex, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + j, dynTex, 0);
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
