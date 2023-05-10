@@ -729,8 +729,8 @@ void initTextures()
 		cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
 	}
 
-	GLenum drawBufs[] = {GL_COLOR_ATTACHMENT0};
-	glDrawBuffers(1, drawBufs);
+	//GLenum drawBufs[] = {GL_COLOR_ATTACHMENT0};
+	//glDrawBuffers(1, drawBufs);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -873,6 +873,8 @@ void display()
 	glm::vec3 up;
 	for (int j = 0; j < 6; j ++)
 	{
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + j, dynTex, 0);
+		
 		glClearColor(0, 0, 0, 1);
 		glClearDepth(1.0f);
 		glClearStencil(0);
@@ -882,12 +884,12 @@ void display()
 		{
 		case 0:
 			look = glm::vec3(1.0f, 0.0f, 0.0f);
-			up = glm::vec3(0.0f, 1.0f, 0.0f);
+			up = glm::vec3(0.0f, -1.0f, 0.0f);
 			break;
 		
 		case 1:
 			look = glm::vec3(-1.0f, 0.0f, 0.0f);
-			up = glm::vec3(0.0f, 1.0f, 0.0f);
+			up = glm::vec3(0.0f, -1.0f, 0.0f);
 			break;
 		
 		case 2:
@@ -902,12 +904,12 @@ void display()
 		
 		case 4:
 			look = glm::vec3(0.0f, 0.0f, 1.0f);
-			up = glm::vec3(0.0f, 1.0f, 0.0f);
+			up = glm::vec3(0.0f, -1.0f, 0.0f);
 			break;
 		
 		case 5:
 			look = glm::vec3(0.0f, 0.0f, -1.0f);
-			up = glm::vec3(0.0f, 1.0f, 0.0f);
+			up = glm::vec3(0.0f, -1.0f, 0.0f);
 			break;
 		}
 
@@ -920,7 +922,7 @@ void display()
 			}
 			else
 			{
-				viewingMatrix[i] = glm::lookAt(eyePos, look, up);
+				viewingMatrix[i] = glm::lookAt(eyePos, eyePos + look, up);
 			}
 		}
 
@@ -942,15 +944,13 @@ void display()
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, gTexGround);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gGroundIndexBuffer);
-		//glDrawElements(GL_TRIANGLES, gGroundFaceCount * 3, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, gGroundFaceCount * 3, GL_UNSIGNED_INT, 0);
 
 		// Statue
 		setShader(3);
 		glBindVertexArray(vao[3]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gStatueIndexBuffer);
 		glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + j, dynTex, 0);
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -980,6 +980,9 @@ void display()
 	}
 
 	glViewport(0, 0, gWidth, gHeight);
+
+	fovyRad = (float)(90.0 / 180.0) * M_PI;
+
 	projectionMatrix = glm::perspective(fovyRad, gWidth/(float) gHeight, 0.1f, 100.0f);
 
 	for (int i = 0; i < 10; i ++)

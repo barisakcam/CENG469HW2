@@ -25,7 +25,12 @@ void main(void)
 
 	vec3 ambientColor = Iamb * ka;
 
-	fragColor = texture(dynTex, vec3(fragWorldPos.x, fragWorldPos.y, fragWorldPos.z));
+	vec3 I = normalize(vec3(fragWorldPos) - eyePos);
+    vec3 R = reflect(I, normalize(fragWorldNor));
+
+	fragColor = vec4(0.3 * texture(dynTex, R).rgb + 0.7 * ambientColor, 1.0);
+	fragColor = vec4(texture(dynTex, R).rgb, 1.0);
+	//fragColor = texture(dynTex, vec3(fragWorldPos.x, fragWorldPos.y, fragWorldPos.z));
 	//fragColor = vec4(fragWorldPos.x, fragWorldPos.y, fragWorldPos.z, 1);
 	//fragColor = vec4(ambientColor, 1);
 }
