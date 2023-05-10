@@ -91,7 +91,7 @@ using namespace std;
 //0: body, 1: skybox
 GLuint gProgram[10];
 int gWidth = 1280, gHeight = 800;
-int dynWidth = 600, dynHeight = 600;
+int dynDim = 600;
 
 GLint modelingMatrixLoc[10];
 GLint viewingMatrixLoc[10];
@@ -101,7 +101,7 @@ GLint eyePosLoc[10];
 glm::mat4 projectionMatrix;
 glm::mat4 viewingMatrix[10];
 glm::mat4 modelingMatrix[10];
-glm::vec3 skyboxEyePos = glm::vec3(0, 0, 0);;
+glm::vec3 skyboxEyePos = glm::vec3(0, 0, 0);
 glm::vec3 eyePos;
 
 int activeProgramIndex = 0;
@@ -706,21 +706,21 @@ void initTextures()
 
 	for (int i = 0; i < 6; i ++)
 	{
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, dynWidth, dynHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB8, dynDim, dynDim, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 	}
 
-	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	//glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	//glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	//glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-	//glBindSampler(2, CubeSampler);
+	glBindSampler(2, CubeSampler);
 
     //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, dynTex, 0);
 
 	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, dynWidth, dynHeight);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, dynDim, dynDim);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -745,7 +745,7 @@ void init()
 void setShader(int index)
 {
 	glUseProgram(gProgram[index]);
-	glUniformMatrix4fv(projectionMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(projectionMatrix[index]));
+	glUniformMatrix4fv(projectionMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(projectionMatrix));
 	glUniformMatrix4fv(viewingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(viewingMatrix[index]));
 	glUniformMatrix4fv(modelingMatrixLoc[index], 1, GL_FALSE, glm::value_ptr(modelingMatrix[index]));
 
@@ -861,6 +861,92 @@ void display()
 	matRz = glm::rotate<float>(glm::mat4(1.0), (0. / 180.) * M_PI, glm::vec3(0.0, 0.0, 1.0));
 	modelingMatrix[5] = matT * matRz * matRy * matRx;
 
+	float fovyRad = (float)(90.0 / 180.0) * M_PI;
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glViewport(0, 0, dynDim, dynDim);
+	projectionMatrix = glm::perspective(fovyRad, 1.0f, 0.1f, 100.0f);
+	eyePos = glm::vec3(carPosx, 1.0f, carPosz);
+	glm::vec3 look;
+	for (int i = 0; i < 6; i ++)
+	{
+		glClearColor(0, 0, 0, 1);
+		glClearDepth(1.0f);
+		glClearStencil(0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		switch (i)
+		{
+		case 0:
+			look = glm::vec3(1, 0, 0);
+			break;
+		
+		case 1:
+			look = glm::vec3(-1, 0, 0);
+			break;
+		
+		case 2:
+			look = glm::vec3(0, 1, 0);
+			break;
+		
+		case 3:
+			look = glm::vec3(0, -1, 0);
+			break;
+		
+		case 4:
+			look = glm::vec3(0, 0, 1);
+			break;
+		
+		case 5:
+			look = glm::vec3(0, 0, -1);
+			break;
+		}
+
+		for (int i = 0; i < 10; i ++)
+		{
+			//viewingMatrix[i] = glm::lookAt(eyePos[i], eyePos[i] + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
+			if (i == 0)
+			{
+				viewingMatrix[i] = glm::lookAt(skyboxEyePos, look, glm::vec3(0.0f, 1.0f, 0.0f));
+			}
+			else
+			{
+				viewingMatrix[i] = glm::lookAt(eyePos, look, glm::vec3(0.0f, 1.0f, 0.0f));
+			}
+		}
+
+		glDepthMask(GL_FALSE);
+		//glDepthFunc(GL_LEQUAL);
+		setShader(0);
+		glBindVertexArray(vao[0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
+		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
+		//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		//glDepthFunc(GL_LESS);
+		glDepthMask(GL_TRUE);
+
+		// Ground
+		setShader(2);
+		glBindVertexArray(vao[2]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, gTexGround);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gGroundIndexBuffer);
+		//glDrawElements(GL_TRIANGLES, gGroundFaceCount * 3, GL_UNSIGNED_INT, 0);
+
+		// Statue
+		setShader(3);
+		glBindVertexArray(vao[3]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gStatueIndexBuffer);
+		//glDrawElements(GL_TRIANGLES, gStatueFaceCount * 3, GL_UNSIGNED_INT, 0);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, dynTex, 0);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	switch (camDir)
 	{
 		case BACK:
@@ -880,6 +966,9 @@ void display()
 			break;
 	}
 
+	glViewport(0, 0, gWidth, gHeight);
+	projectionMatrix = glm::perspective(fovyRad, gWidth/(float) gHeight, 0.1f, 100.0f);
+
 	for (int i = 0; i < 10; i ++)
 	{
 		//viewingMatrix[i] = glm::lookAt(eyePos[i], eyePos[i] + glm::vec3(1.0f * glm::sin(angleRad), 0.0f, 1.0f * glm::cos(angleRad)), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -892,53 +981,6 @@ void display()
 			viewingMatrix[i] = glm::lookAt(eyePos, glm::vec3(carPosx, 0.0f, carPosz), glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	for (int i = 0; i < 6; i ++)
-	{
-		glClearColor(0, 0, 0, 1);
-		glClearDepth(1.0f);
-		glClearStencil(0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-		switch (i)
-		{
-		case 0:
-			break;
-		
-		case 1:
-			break;
-		
-		case 2:
-			break;
-		
-		case 3:
-			break;
-		
-		case 4:
-			break;
-		
-		case 5:
-			break;
-		}
-
-		glDepthMask(GL_FALSE);
-		//glDepthFunc(GL_LEQUAL);
-		setShader(0);
-		glBindVertexArray(vao[0]);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, gTexCube);
-		//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gSkyIndexBuffer);
-		//glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		//glDepthFunc(GL_LESS);
-		glDepthMask(GL_TRUE);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, dynTex, 0);
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// Skybox
 	glDepthMask(GL_FALSE);
@@ -995,32 +1037,6 @@ void reshape(GLFWwindow* window, int w, int h)
 
 	gWidth = w;
 	gHeight = h;
-
-	glViewport(0, 0, w, h);
-
-	//glMatrixMode(GL_PROJECTION);
-	//glLoadIdentity();
-	//glOrtho(-10, 10, -10, 10, -10, 10);
-	//gluPerspective(45, 1, 1, 100);
-
-	// Use perspective projection
-
-	float fovyRad = (float)(90.0 / 180.0) * M_PI;
-	//fovyRad = (float)(80.0 / 180.0) * M_PI;
-	for (int i = 0; i < 10; i ++)
-	{
-		projectionMatrix[i] = glm::perspective(fovyRad, w/(float) h, 0.1f, 100.0f);
-	}
-
-	// Assume default camera position and orientation (camera is at
-	// (0, 0, 0) with looking at -z direction and its up vector pointing
-	// at +y direction)
-
-	//viewingMatrix[1] = glm::lookAt(eyePos, glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	//glm::mat4 view = glm::mat4(glm::mat3(camera.GetViewMatrix()));  
-
-	//glMatrixMode(GL_MODELVIEW);
-	//glLoadIdentity();
 }
 
 void keyboard(GLFWwindow* window, int key, int scancode, int action, int mods)

@@ -17,8 +17,10 @@ void main(void)
 	// stage and the fragment shader will receive the interpolated
 	// coordinates.
 
-	fragWorldPos = modelingMatrix * vec4(inVertex, 1);
 	fragWorldNor = inverse(transpose(mat3x3(modelingMatrix))) * inNormal;
+
+	fragWorldPos = vec4(inVertex, 1);
+	fragWorldPos = vec4(reflect(inVertex, fragWorldNor), 1);
 
     gl_Position = projectionMatrix * viewingMatrix * modelingMatrix * vec4(inVertex, 1);
 }
